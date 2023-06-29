@@ -56,28 +56,15 @@ def __formatLines(lines: list):
     return newLines
 
 
-# Remove idle lines (with CPU<0,5%) at the beginning of each test (for example AddTest) in the list
-def __removeIdleLinesAtBeginning(lines: list):
+# Remove idle lines (with CPU < 2%)
+def __removeIdleLines(lines: list):
     newLines = []
-    testType = ""
-    isLineAtBeginningOfTest = False
 
-    for i in range(len(lines)):
-        columns = lines[i].split(";")
+    for line in lines:
+        columns = line.split(";")
 
-        if testType != columns[1]:  # begin of a new test
-            isLineAtBeginningOfTest = True
-            testType = columns[1]
-
-        if float(columns[4]) > 0.5:  # CPU != 0%
-            if isLineAtBeginningOfTest and i > 1:  # add last line with CPU<0.5%
-                newLines.append(lines[i - 1])
-
-            isLineAtBeginningOfTest = False
-            newLines.append(lines[i])
-            continue
-        elif not isLineAtBeginningOfTest:
-            newLines.append(lines[i])
+        if float(columns[4]) > 2:  # CPU is not in idle (> 2%)
+            newLines.append(line)
 
     return newLines
 
@@ -165,16 +152,17 @@ Block Output [MB]"""
 
         lines = __removeUnnecessaryLines(lines)
         lines = __formatLines(lines)
-        lines = __removeIdleLinesAtBeginning(lines)
-        lines.reverse()
-        lines = __removeIdleLinesAtBeginning(lines)
-        lines.reverse()
+        lines = __removeIdleLines(lines)
+        #lines.reverse()
+        #lines = __removeIdleLinesAtBeginning(lines)
+        #lines.reverse()
 
         __writeAllStatsToFile("docker_stats.csv", columns, lines)
 
         for container in ["running-go-api", "running-nodejs-api", "running-python-api"]:
-            for testname in ["AddTest", "ChangeTest", "GetTest", "DeleteTest"]:
-                __writeTestStatsToFile(f"docker_stats_{testname}_{container}.csv", lines, testname, container, 4)
+            for testname in ["AddTest", "ChangeTest", "GetTest", "DeleteTest", "AllTests"]:
+                __writeTestStatsToFile(f"docker_stats_{testname}_{container}_cpu.csv", lines, testname, container, 4)
+                __writeTestStatsToFile(f"docker_stats_{testname}_{container}_memory.csv", lines, testname, container, 5)
 
     except Exception:
         traceback.print_exc()
