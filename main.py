@@ -1,4 +1,5 @@
 import os.path
+import sys
 import traceback
 
 
@@ -69,9 +70,21 @@ def __removeIdleLines(lines: list):
     return newLines
 
 
-def __writeAllStatsToFile(filename: str, columns: str, lines: list):
-    with open(os.path.join(r"C:\Users\Andi\Desktop\Bac\_Builds", filename), "w") as file:
-        file.write(columns + "\n")
+def __writeAllStatsToFile(filename: str, lines: list):
+    columnNames = """Time;\
+    Test;\
+    Test Name;\
+    Container;\
+    CPU [%];\
+    MEM Usage [MiB];\
+    MEM Limit [MiB];\
+    NET Input [MB];\
+    NET Output [MB];\
+    Block Input [MB];\
+    Block Output [MB]"""
+
+    with open(filename, "w") as file:
+        file.write(columnNames + "\n")
 
         for line in lines:
             file.write(line.replace(".", ",") + "\n")
@@ -98,7 +111,8 @@ def __linesToTestBlocks(lines: list):
     return allTests
 
 
-def __writeTestStatsToFile(filename: str, lines: list, nameOfTest: str, nameOfContainer: str, columnToWrite: int):
+def __writeTestStatsToFile(filename: str, lines: list, nameOfTest: str, nameOfContainer: str,
+                           columnToWrite: int, columnToWriteName: str):
     filteredLines = []
 
     for line in lines:
@@ -113,6 +127,11 @@ def __writeTestStatsToFile(filename: str, lines: list, nameOfTest: str, nameOfCo
     blockList = __linesToTestBlocks(filteredLines)
     maxLenOfBlock = max(len(x) for x in blockList)
     newLines = []
+    firstLine = "Container;Test;"
+
+    for i in range(len(blockList)):
+        firstLine += f"Time ({str(i + 1)});Test Name ({str(i + 1)});{columnToWriteName} ({str(i + 1)});"
+    newLines.append(firstLine)
 
     for i in range(maxLenOfBlock):
         newLine = f"{nameOfContainer};{nameOfTest}"
@@ -127,42 +146,40 @@ def __writeTestStatsToFile(filename: str, lines: list, nameOfTest: str, nameOfCo
 
         newLines.append(newLine)
 
-    with open(os.path.join(r"C:\Users\Andi\Desktop\Bac\_Builds", filename), "w") as file:
+    with open(filename, "w") as file:
         for line in newLines:
             file.write(line.replace(".", ",") + "\n")
 
 
 if __name__ == "__main__":
-    try:
-        filenameSrc = r"C:\Users\Andi\Desktop\Bac\_Builds\docker_raw_stats.csv"
-        columns = """Time;\
-Test Name;\
-Test Number;\
-Container;\
-CPU [%];\
-MEM Usage [MiB];\
-MEM Limit [MiB];\
-NET Input [MB];\
-NET Output [MB];\
-Block Input [MB];\
-Block Output [MB]"""
+    if len(sys.argv) < 1:
+        print("The path of the .csv file must be the first parameter!")
+        quit()
 
+    filenameSrc = sys.argv[1]
+
+    if not os.path.exists(filenameSrc):
+        print("The path of the .csv file must be the first parameter!")
+        quit()
+
+    foldername = os.path.dirname(filenameSrc)
+
+    try:
         with open(filenameSrc, "r") as file:
             lines = file.readlines()
 
         lines = __removeUnnecessaryLines(lines)
         lines = __formatLines(lines)
         lines = __removeIdleLines(lines)
-        #lines.reverse()
-        #lines = __removeIdleLinesAtBeginning(lines)
-        #lines.reverse()
 
-        __writeAllStatsToFile("docker_stats.csv", columns, lines)
+        __writeAllStatsToFile(os.path.join(foldername, "docker_stats.csv"), lines)
 
         for container in ["running-go-api", "running-nodejs-api", "running-python-api"]:
             for testname in ["AddTest", "ChangeTest", "GetTest", "DeleteTest", "AllTests"]:
-                __writeTestStatsToFile(f"docker_stats_{testname}_{container}_cpu.csv", lines, testname, container, 4)
-                __writeTestStatsToFile(f"docker_stats_{testname}_{container}_memory.csv", lines, testname, container, 5)
+                __writeTestStatsToFile(os.path.join(foldername, f"docker_stats_{testname}_{container}_cpu.csv"), lines,
+                                       testname, container, 4, "CPU [%]")
+                __writeTestStatsToFile(os.path.join(foldername, f"docker_stats_{testname}_{container}_memory.csv"), lines,
+                                       testname, container, 5, "MEM Usage [MiB]")
 
     except Exception:
         traceback.print_exc()
